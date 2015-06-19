@@ -1,43 +1,43 @@
 {
-  "name": "hubot-xmpp",
-  "version": "0.1.16",
+  "name": "brobbot-xmpp",
+  "version": "0.2.0",
   "author": {
-    "name": "Mark Story",
-    "email": "mark@mark-story.com",
-    "url": "http://mark-story.com"
+    "name": "Ben Robbins",
+    "email": "ben.robbins@gmail.com"
   },
-  "description": "XMPP adapter for Hubot.",
+  "contributors": [
+    "Mark Story <mark@mark-story.com>"
+  ],
+  "description": "XMPP adapter for Brobbot.",
   "keywords": [
-    "hubot",
+    "brobbot",
     "xmpp",
     "adapter"
   ],
-  "licenses": [
-    {
-      "type": "MIT"
-    }
-  ],
+  "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git://github.com/markstory/hubot-xmpp.git"
+    "url": "git://github.com/b3nj4m/hubot-xmpp.git"
   },
   "bugs": {
-    "url": "http://github.com/markstory/hubot-xmpp/issues"
+    "url": "http://github.com/b3nj4m/hubot-xmpp/issues"
   },
   "scripts": {
-    "test": "make test"
+    "test": "mocha test.js"
   },
   "main": "./src/xmpp",
-  "engine": "node > 0.6.0 < 0.13.0",
+  "engine": "node > 0.12.0",
+  "peerDependencies": {
+    "brobbot": "5.x - 6.x"
+  },
   "dependencies": {
     "node-xmpp-client": "1.0.0-alpha20",
     "ltx": "0.9.0",
     "node-xmpp-core": "1.0.0-alpha14"
   },
   "devDependencies": {
-    "coffee-script": "1.1.3",
     "sinon": "1.9.0",
     "mocha": "1.15.1",
-    "hubot": ">=2.4.1"
+    "brobbot": "6.x"
   }
 }
