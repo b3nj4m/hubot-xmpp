@@ -8,6 +8,12 @@ Install in your [brobbot-instance](https://npmjs.org/package/brobbot-instance):
 
 	npm install --save brobbot-xmpp
 
+Use the `-a` switch to specify the adapter:
+
+```bash
+./index.sh -a xmpp
+```
+
 ## Configuration
 
 There are a few configuration values you can use when getting brobbot-xmpp
