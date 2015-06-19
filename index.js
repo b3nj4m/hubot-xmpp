@@ -421,8 +421,6 @@
 
   })(Adapter);
 
-  exports.use = function(robot) {
-    return new XmppBot(robot);
-  };
+  module.exports = XmppBot;
 
 }).call(this);

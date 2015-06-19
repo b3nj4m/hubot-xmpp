@@ -2,7 +2,7 @@
 (function() {
   var Adapter, Bot, EnterMessage, LeaveMessage, Robot, TextMessage, XmppClient, assert, ltx, sinon, _ref;
 
-  Bot = require('../src/xmpp');
+  Bot = require('.');
 
   XmppClient = require('node-xmpp-client');
 
@@ -17,7 +17,7 @@
   describe('XmppBot', function() {
     describe('#parseRooms()', function() {
       var bot;
-      bot = Bot.use();
+      bot = new Bot();
       return it('should split passwords', function() {
         var result, rooms;
         rooms = ['secretroom:password', 'room'];
@@ -31,7 +31,7 @@
     });
     describe('#joinRoom()', function() {
       var bot, room;
-      bot = Bot.use();
+      bot = new Bot();
       bot.client = {
         stub: 'xmpp client'
       };
@@ -86,7 +86,7 @@
     });
     describe('#ping()', function() {
       var bot, room;
-      bot = Bot.use();
+      bot = new Bot();
       bot.client = {
         stub: 'xmpp client'
       };
@@ -116,7 +116,7 @@
     });
     describe('#leaveRoom()', function() {
       var bot, room;
-      bot = Bot.use();
+      bot = new Bot();
       bot.client = {
         stub: 'xmpp client'
       };
@@ -167,7 +167,7 @@
     describe('#readIq', function() {
       var bot, stanza;
       stanza = '';
-      bot = Bot.use();
+      bot = new Bot();
       bot.client = {
         stub: 'xmpp client'
       };
@@ -224,7 +224,7 @@
     describe('#readMessage()', function() {
       var bot, stanza;
       stanza = '';
-      bot = Bot.use();
+      bot = new Bot();
       bot.options = {
         username: 'bot',
         rooms: [
@@ -322,7 +322,7 @@
     });
     describe('#reply()', function() {
       var bot, envelope;
-      bot = Bot.use();
+      bot = new Bot();
       envelope = {
         user: {
           name: 'mark'
@@ -349,7 +349,7 @@
     });
     describe('#topic()', function() {
       var bot, envelope;
-      bot = Bot.use();
+      bot = new Bot();
       bot.client = {
         stub: 'xmpp client'
       };
@@ -377,7 +377,7 @@
     });
     describe('#error()', function() {
       var bot;
-      bot = Bot.use();
+      bot = new Bot();
       bot.robot = {
         logger: {
           error: function() {}
@@ -419,7 +419,7 @@
     });
     describe('#read()', function() {
       var bot;
-      bot = Bot.use();
+      bot = new Bot();
       bot.robot = {
         logger: {
           error: function() {}
@@ -495,7 +495,7 @@
             }
           }
         };
-        bot = Bot.use(robot);
+        bot = new Bot(robot);
         bot.options = {
           username: 'bot',
           rooms: [
@@ -695,7 +695,7 @@
     });
     describe('#send()', function() {
       var bot;
-      bot = Bot.use();
+      bot = new Bot();
       bot.options = {
         username: 'bot',
         rooms: [
@@ -848,7 +848,7 @@
       var bot;
       bot = null;
       beforeEach(function() {
-        bot = Bot.use();
+        bot = new Bot();
         bot.options = {
           username: 'mybot@example.com',
           rooms: [
@@ -917,7 +917,7 @@
       var bot;
       bot = null;
       beforeEach(function() {
-        bot = Bot.use();
+        bot = new Bot();
         bot.heardOwnPresence = true;
         bot.options = {
           username: 'bot',
@@ -1045,7 +1045,7 @@
       };
       beforeEach(function() {
         clock = sinon.useFakeTimers();
-        bot = Bot.use();
+        bot = new Bot();
         return bot.client = {
           connection: {
             socket: {}
@@ -1082,7 +1082,7 @@
       var bot, clock, mock;
       bot = clock = mock = null;
       beforeEach(function() {
-        bot = Bot.use();
+        bot = new Bot();
         bot.robot = {
           logger: {
             error: sinon.stub()
