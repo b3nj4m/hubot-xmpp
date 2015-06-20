@@ -36,8 +36,9 @@
     "node-xmpp-core": "1.0.0-alpha14"
   },
   "devDependencies": {
-    "sinon": "1.9.0",
-    "mocha": "1.15.1",
-    "brobbot": "6.x"
+    "brobbot": "6.x",
+    "mocha": "^2.2.5",
+    "q": "^1.4.1",
+    "sinon": "1.9.0"
   }
 }

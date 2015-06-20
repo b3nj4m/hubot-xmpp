@@ -878,7 +878,7 @@
       it('should emit connected event', function(done) {
         var callCount, expected;
         callCount = 0;
-        bot.on('connected', function() {
+        bot.connected.then(function() {
           assert.equal(callCount, expected.length, 'Call count is wrong');
           return done();
         });
@@ -902,14 +902,6 @@
           }
           return callCount++;
         };
-        return bot.online();
-      });
-      return it('should emit reconnected when connected', function(done) {
-        bot.connected = true;
-        bot.on('reconnected', function() {
-          assert.ok(bot.connected);
-          return done();
-        });
         return bot.online();
       });
     });
@@ -1085,6 +1077,7 @@
         bot = new Bot();
         bot.robot = {
           logger: {
+            info: sinon.stub(),
             error: sinon.stub()
           }
         };
@@ -1099,23 +1092,24 @@
           return mock.restore();
         }
       });
-      it('should attempt a reconnect and increment retry count', function(done) {
-        bot.makeClient = function() {
-          assert.ok(true, 'Attempted to make a new client');
-          return done();
-        };
+      it('should attempt a reconnect and increment retry count', function() {
+        bot.connectedDefer.reject();
         assert.equal(0, bot.reconnectTryCount);
         bot.reconnect();
         assert.equal(1, bot.reconnectTryCount, 'No time elapsed');
-        return clock.tick(5001);
+        bot.online();
+        return bot.connected.then(function() {
+          assert.ok(true, 'Attempted to make a new client');
+        });
       });
-      return it('should exit after 5 tries', function() {
+      it('should exit after 5 tries', function() {
         mock = sinon.mock(process);
         mock.expects('exit').once();
+        bot.connectedDefer.reject();
         bot.reconnectTryCount = 5;
         bot.reconnect();
         mock.verify();
-        return assert.ok(bot.robot.logger.error.called);
+        assert.ok(bot.robot.logger.error.called);
       });
     });
   });

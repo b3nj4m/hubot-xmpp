@@ -16,6 +16,8 @@
 
   util = require('util');
 
+  var Q = require('q');
+
   XmppBot = (function(_super) {
     __extends(XmppBot, _super);
 
@@ -33,59 +35,68 @@
       this.robot = robot;
       this.anonymousGroupChatWarningLogged = false;
       this.roomToPrivateJID = {};
-    }
+      this.connectedDefer = Q.defer();
+      this.connected = this.connectedDefer.promise;
 
-    XmppBot.prototype.run = function() {
-      var options;
-      options = {
-        username: process.env.BROBBOT_XMPP_USERNAME,
-        password: '********',
-        host: process.env.BROBBOT_XMPP_HOST,
-        port: process.env.BROBBOT_XMPP_PORT,
-        rooms: this.parseRooms(process.env.BROBBOT_XMPP_ROOMS.split(',')),
+      this.options = {
+        username: process.env.BROBBOT_XMPP_USERNAME || '',
+        password: process.env.BROBBOT_XMPP_PASSWORD || '',
+        host: process.env.BROBBOT_XMPP_HOST || '',
+        port: process.env.BROBBOT_XMPP_PORT || '',
+        rooms: this.parseRooms((process.env.BROBBOT_XMPP_ROOMS || '').split(',')),
         keepaliveInterval: 30000,
         legacySSL: process.env.BROBBOT_XMPP_LEGACYSSL,
         preferredSaslMechanism: process.env.BROBBOT_XMPP_PREFERRED_SASL_MECHANISM,
         disallowTLS: process.env.BROBBOT_XMPP_DISALLOW_TLS
       };
-      this.robot.logger.info(util.inspect(options));
-      options.password = process.env.BROBBOT_XMPP_PASSWORD;
-      this.options = options;
-      this.connected = false;
+    }
+
+    XmppBot.prototype.run = function() {
+      this.robot.logger.info(util.inspect(this.options));
       return this.makeClient();
     };
 
     XmppBot.prototype.reconnect = function() {
       this.reconnectTryCount += 1;
-      if (this.reconnectTryCount > 5) {
-        this.robot.logger.error('Unable to reconnect to jabber server dying.');
-        process.exit(1);
+
+      if (!this.connected.isPending() || !this.client) {
+        this.connectedDefer = Q.defer();
+        this.connected = this.connectedDefer.promise;
+
+        if (this.reconnectTryCount > 5) {
+          this.robot.logger.error('Unable to reconnect to jabber server dying.');
+          process.exit(1);
+        }
+        this.client.removeListener('error', this.error);
+        this.client.removeListener('online', this.online);
+        this.client.removeListener('offline', this.offline);
+        this.client.removeListener('stanza', this.read);
+
+        this.makeClient();
       }
-      this.client.removeListener('error', this.error);
-      this.client.removeListener('online', this.online);
-      this.client.removeListener('offline', this.offline);
-      this.client.removeListener('stanza', this.read);
-      return setTimeout((function(_this) {
-        return function() {
-          return _this.makeClient();
-        };
-      })(this), 5000);
+
+      return this.connected;
     };
 
     XmppBot.prototype.makeClient = function() {
       var options;
       options = this.options;
-      this.client = new XmppClient({
-        reconnect: true,
-        jid: options.username,
-        password: options.password,
-        host: options.host,
-        port: options.port,
-        legacySSL: options.legacySSL,
-        preferredSaslMechanism: options.preferredSaslMechanism,
-        disallowTLS: options.disallowTLS
-      });
-      return this.configClient(options);
+      try {
+        this.client = new XmppClient({
+          reconnect: true,
+          jid: options.username,
+          password: options.password,
+          host: options.host,
+          port: options.port,
+          legacySSL: options.legacySSL,
+          preferredSaslMechanism: options.preferredSaslMechanism,
+          disallowTLS: options.disallowTLS
+        });
+        this.configClient(options);
+      }
+      catch (err) {
+        this.robot.logger.error(err);
+      }
     };
 
     XmppBot.prototype.configClient = function(options) {
@@ -110,22 +121,24 @@
     XmppBot.prototype.online = function() {
       var presence, room, _i, _len, _ref1;
       this.robot.logger.info('Brobbot XMPP client online');
-      this.client.connection.socket.setTimeout(0);
-      this.client.connection.socket.setKeepAlive(true, this.options.keepaliveInterval);
-      presence = new ltx.Element('presence');
-      presence.c('nick', {
-        xmlns: 'http://jabber.org/protocol/nick'
-      }).t(this.robot.name);
-      this.client.send(presence);
-      this.robot.logger.info('Brobbot XMPP sent initial presence');
-      _ref1 = this.options.rooms;
-      for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
-        room = _ref1[_i];
-        this.joinRoom(room);
+
+      if (this.client && this.client.connection) {
+        this.client.connection.socket.setTimeout(0);
+        this.client.connection.socket.setKeepAlive(true, this.options.keepaliveInterval);
+        presence = new ltx.Element('presence');
+        presence.c('nick', {
+          xmlns: 'http://jabber.org/protocol/nick'
+        }).t(this.robot.name);
+        this.client.send(presence);
+        this.robot.logger.info('Brobbot XMPP sent initial presence');
+        _ref1 = this.options.rooms;
+        for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
+          room = _ref1[_i];
+          this.joinRoom(room);
+        }
       }
-      this.emit(this.connected ? 'reconnected' : 'connected');
-      this.connected = true;
-      return this.reconnectTryCount = 0;
+      this.connectedDefer.resolve();
+      this.reconnectTryCount = 0;
     };
 
     XmppBot.prototype.ping = function() {
