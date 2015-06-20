@@ -52,32 +52,33 @@ XmppBot.prototype.run = function() {
 };
 
 XmppBot.prototype.reconnect = function() {
-  this.reconnectTryCount += 1;
+  this.robot.logger.info('Connection closed, attempting to reconnect');
 
-  if (!this.connected.isPending() || !this.client) {
+  if (!this.connected.isPending()) {
     this.connectedDefer = Q.defer();
     this.connected = this.connectedDefer.promise;
-
-    //TODO exponential backoff
-    if (this.reconnectTryCount > 5) {
-      this.robot.logger.error('Unable to reconnect to jabber server dying.');
-      process.exit(1);
-    }
-    this.client.removeListener('error', this.error);
-    this.client.removeListener('online', this.online);
-    this.client.removeListener('offline', this.offline);
-    this.client.removeListener('stanza', this.read);
-
-    this.makeClient();
   }
 
+  this.client.removeListener('error', this.error);
+  this.client.removeListener('online', this.online);
+  this.client.removeListener('offline', this.offline);
+  this.client.removeListener('stanza', this.read);
+
+  setTimeout(this.makeClient.bind(this), this.reconnectTimeout());
+
+  this.reconnectTryCount++;
+
   return this.connected;
+};
+
+XmppBot.prototype.reconnectTimeout = function() {
+  return Math.pow(2, Math.min(this.reconnectTryCount, 7)) * 1000;
 };
 
 XmppBot.prototype.makeClient = function() {
   try {
     this.client = new XmppClient({
-      reconnect: true,
+      reconnect: false,
       jid: this.options.username,
       password: this.options.password,
       host: this.options.host,
@@ -86,6 +87,7 @@ XmppBot.prototype.makeClient = function() {
       preferredSaslMechanism: this.options.preferredSaslMechanism,
       disallowTLS: this.options.disallowTLS
     });
+
     this.configClient();
   }
   catch (err) {
@@ -104,11 +106,6 @@ XmppBot.prototype.configClient = function() {
   this.client.on('online', this.online);
   this.client.on('offline', this.offline);
   this.client.on('stanza', this.read);
-
-  this.client.on('end', function() {
-    self.robot.logger.info('Connection closed, attempting to reconnect');
-    return self.reconnect();
-  });
 };
 
 XmppBot.prototype.error = function(error) {
@@ -131,6 +128,7 @@ XmppBot.prototype.online = function() {
 
     this.robot.logger.info('Brobbot XMPP sent initial presence');
 
+    //TODO resolve connected after joins
     for (var i = 0; i < this.options.rooms.length; i++) {
       this.joinRoom(this.options.rooms[i]);
     }
@@ -148,7 +146,7 @@ XmppBot.prototype.ping = function() {
   });
 
   this.robot.logger.debug("[sending ping] " + ping);
-  this.client.send(ping);
+  return this.client.send(ping);
 };
 
 XmppBot.prototype.parseRooms = function(items) {
@@ -203,14 +201,12 @@ XmppBot.prototype.leaveRoom = function(room) {
     }
   }
 
-  return this.client.send(function() {
-    self.robot.logger.debug("Leaving " + room.jid + "/" + self.robot.name);
+  this.robot.logger.debug("Leaving " + room.jid + "/" + this.robot.name);
 
-    return new ltx.Element('presence', {
-      to: room.jid + "/" + self.robot.name,
-      type: 'unavailable'
-    });
-  });
+  return this.client.send(new ltx.Element('presence', {
+    to: room.jid + "/" + this.robot.name,
+    type: 'unavailable'
+  }));
 };
 
 XmppBot.prototype.read = function(stanza) {
@@ -397,97 +393,107 @@ XmppBot.prototype.messageFromRoom = function(room) {
 };
 
 XmppBot.prototype.send = function(envelope) {
+  var self = this;
   var messages = Array.prototype.slice.call(arguments, 1);
 
-  var results = [];
-  var msg;
-  var to;
-  var params;
-  var message;
-  var parsedMsg;
-  var bodyMsg;
+  return this.connected.then(function() {
+    var results = [];
+    var msg;
+    var to;
+    var params;
+    var message;
+    var parsedMsg;
+    var bodyMsg;
 
-  for (var i = 0; i < messages.length; i++) {
-    msg = messages[i];
+    for (var i = 0; i < messages.length; i++) {
+      msg = messages[i];
 
-    this.robot.logger.debug('Sending to ' + envelope.room + ': ' + msg);
+      self.robot.logger.debug('Sending to ' + envelope.room + ': ' + msg);
 
-    to = envelope.room;
-    if (envelope.user.type === 'direct' || envelope.user.type === 'chat') {
-      to = envelope.user.privateChatJID || envelope.room + "/" + envelope.user.name;
-    }
-
-    params = {
-      to: to,
-      type: envelope.user.type || 'groupchat'
-    };
-
-    if (msg.attrs) {
-      message = msg.root();
-
-      if (!message.attrs.to) {
-        message.attrs.to = params.to;
+      to = envelope.room;
+      if (envelope.user.type === 'direct' || envelope.user.type === 'chat') {
+        to = envelope.user.privateChatJID || envelope.room + "/" + envelope.user.name;
       }
 
-      if (!message.attrs.type) {
-        message.attrs.type = params.type;
-      }
-    }
-    else {
-      try {
-        parsedMsg = new ltx.parse(msg);
-      }
-      catch (err) {
-        parsedMsg = null;
-      }
+      params = {
+        to: to,
+        type: envelope.user.type || 'groupchat'
+      };
 
-      bodyMsg = new ltx.Element('message', params).c('body').t(msg);
+      if (msg.attrs) {
+        message = msg.root();
 
-      if (parsedMsg) {
-        message = bodyMsg.up().c('html', {
-          xmlns: 'http://jabber.org/protocol/xhtml-im'
-        }).c('body', {
-          xmlns: 'http://www.w3.org/1999/xhtml'
-        }).cnode(parsedMsg);
+        if (!message.attrs.to) {
+          message.attrs.to = params.to;
+        }
+
+        if (!message.attrs.type) {
+          message.attrs.type = params.type;
+        }
       }
       else {
-        message = bodyMsg;
-      }
-    }
-    results.push(this.client.send(message));
-  }
+        try {
+          parsedMsg = new ltx.parse(msg);
+        }
+        catch (err) {
+          parsedMsg = null;
+        }
 
-  return Q.all(results);
+        bodyMsg = new ltx.Element('message', params).c('body').t(msg);
+
+        if (parsedMsg) {
+          message = bodyMsg.up().c('html', {
+            xmlns: 'http://jabber.org/protocol/xhtml-im'
+          }).c('body', {
+            xmlns: 'http://www.w3.org/1999/xhtml'
+          }).cnode(parsedMsg);
+        }
+        else {
+          message = bodyMsg;
+        }
+      }
+      results.push(self.client.send(message));
+    }
+
+    return Q.all(results);
+  });
 };
 
 XmppBot.prototype.reply = function(envelope) {
+  var self = this;
   var messages = Array.prototype.slice.call(arguments, 1);
 
-  var results = [];
+  return this.connected.then(function() {
+    var results = [];
 
-  for (var i = 0; i < messages.length; i++) {
-    if (messages[i].attrs) {
-      results.push(this.send(envelope, messages[i]));
+    for (var i = 0; i < messages.length; i++) {
+      if (messages[i].attrs) {
+        results.push(self.send(envelope, messages[i]));
+      }
+      else {
+        results.push(self.send(envelope, envelope.user.name + ": " + messages[i]));
+      }
     }
-    else {
-      results.push(this.send(envelope, envelope.user.name + ": " + messages[i]));
-    }
-  }
 
-  return Q.all(results);
+    return Q.all(results);
+  });
 };
 
 XmppBot.prototype.topic = function(envelope) {
+  var self = this;
   var string = Array.prototype.slice.call(arguments, 1).join('\n');
 
-  return this.client.send(new ltx.Element('message', {
-    to: envelope.room,
-    type: envelope.user.type
-  }).c('subject').t(string));
+  return this.connected.then(function() {
+    return self.client.send(new ltx.Element('message', {
+      to: envelope.room,
+      type: envelope.user.type
+    }).c('subject').t(string));
+  });
 };
 
 XmppBot.prototype.offline = function() {
-  return this.robot.logger.debug('Received offline event');
+  this.robot.logger.debug('Received offline event');
+  return this.reconnect();
 };
 
 module.exports = XmppBot;
