@@ -31,9 +31,9 @@
     "brobbot": "5.x - 6.x"
   },
   "dependencies": {
-    "node-xmpp-client": "1.0.0-alpha20",
-    "ltx": "0.9.0",
-    "node-xmpp-core": "1.0.0-alpha14"
+    "ltx": "^0.9.0",
+    "node-xmpp-client": "^1.0.0-alpha20",
+    "node-xmpp-core": "^1.0.0-alpha14"
   },
   "devDependencies": {
     "brobbot": "6.x",
