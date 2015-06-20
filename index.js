@@ -293,6 +293,7 @@ XmppBot.prototype.readMessage = function(stanza) {
 XmppBot.prototype.readPresence = function(stanza) {
   var fromJID = new JID(stanza.attrs.from);
   var self = this;
+  var room;
 
   stanza.attrs.type = stanza.attrs.type || 'available';
 
@@ -328,7 +329,7 @@ XmppBot.prototype.readPresence = function(stanza) {
         return;
       }
 
-      var room = fromJID.bare().toString();
+      room = fromJID.bare().toString();
 
       if (!this.messageFromRoom(room)) {
         return;
@@ -347,7 +348,7 @@ XmppBot.prototype.readPresence = function(stanza) {
       });
     case 'unavailable':
       var from = stanza.attrs.from.split('/');
-      var room = from[0];
+      room = from[0];
       var user = from[1];
 
       if (!this.messageFromRoom(room)) {
