@@ -279,7 +279,13 @@ XmppBot.prototype.readMessage = function(stanza) {
     privateChatJID = stanza.attrs.from;
   }
 
-  return this.robot.brain.userForId(userId, {type: stanza.attrs.type, room: room, privateChatJID: privateChatJID}).then(function(user) {
+  var opts = {type: stanza.attrs.type, room: room};
+
+  if (privateChatJID) {
+    opts.privateChatJID = privateChatJID;
+  }
+
+  return this.robot.brain.userForId(userId, opts).then(function(user) {
     self.robot.logger.debug('Received message: ' + message + ' in room: ' + user.room + ', from: ' + user.name + '. Private chat JID is ' + user.privateChatJID);
 
     return self.receive(new TextMessage(user, message));
@@ -333,11 +339,17 @@ XmppBot.prototype.readPresence = function(stanza) {
 
       var privateChatJID = this.resolvePrivateJID(stanza);
       privateChatJID = privateChatJID && privateChatJID.toString();
-      this.roomToPrivateJID[fromJID.toString()] = privateChatJID;
 
       this.robot.logger.debug('Available received from ' + (fromJID.toString()) + ' in room ' + room + ' and private chat jid is ' + privateChatJID);
 
-      return this.robot.brain.userForId(fromJID.resource, {room: room, jid: fromJID.toString(), privateChatJID: privateChatJID}).then(function(user) {
+      var opts = {room: room, jid: fromJID.toString()};
+
+      if (privateChatJID) {
+        opts.privateChatJID = privateChatJID;
+        this.roomToPrivateJID[fromJID.toString()] = privateChatJID;
+      }
+
+      return this.robot.brain.userForId(fromJID.resource, opts).then(function(user) {
         if (self.heardOwnPresence) {
           return self.receive(new EnterMessage(user));
         }
