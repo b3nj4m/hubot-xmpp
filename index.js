@@ -24,6 +24,7 @@ function XmppBot(robot) {
   this.roomToPrivateJID = {};
   this.connectedDefer = Q.defer();
   this.connected = this.connectedDefer.promise;
+  this.rooms = new Map();
 
   var username = process.env.BROBBOT_XMPP_USERNAME || '';
   var host = process.env.BROBBOT_XMPP_HOST || username.split('@')[1] || '';
@@ -39,6 +40,10 @@ function XmppBot(robot) {
     preferredSaslMechanism: process.env.BROBBOT_XMPP_PREFERRED_SASL_MECHANISM,
     disallowTLS: process.env.BROBBOT_XMPP_DISALLOW_TLS
   };
+
+  for (var i in this.options.rooms) {
+    this.rooms.set(this.options.rooms[i].jid.toLowerCase(), this.options.rooms[i]);
+  }
 }
 
 XmppBot.prototype = Object.create(Adapter.prototype);
@@ -129,8 +134,8 @@ XmppBot.prototype.online = function() {
     this.robot.logger.info('Brobbot XMPP sent initial presence');
 
     //TODO resolve connected after joins
-    for (var i = 0; i < this.options.rooms.length; i++) {
-      this.joinRoom(this.options.rooms[i]);
+    for (var room of this.rooms.values()) {
+      this.joinRoom(room);
     }
   }
   this.connectedDefer.resolve();
@@ -191,15 +196,7 @@ XmppBot.prototype.leaveRoom = function(room) {
   var i = 0;
   var self = this;
 
-  //TODO Map
-  while (i < this.options.rooms.length) {
-    if (this.options.rooms[i].jid === room.jid) {
-      this.options.rooms.splice(i, 1);
-    }
-    else {
-      i++;
-    }
-  }
+  this.rooms.delete(room.jid);
 
   this.robot.logger.debug("Leaving " + room.jid + "/" + this.robot.name);
 
@@ -396,12 +393,7 @@ XmppBot.prototype.resolvePrivateJID = function(stanza) {
 };
 
 XmppBot.prototype.messageFromRoom = function(room) {
-  for (var i = 0; i < this.options.rooms.length; i++) {
-    if (this.options.rooms[i].jid.toUpperCase() === room.toUpperCase()) {
-      return true;
-    }
-  }
-  return false;
+  return this.rooms.has(room.toLowerCase());
 };
 
 XmppBot.prototype.send = function(envelope) {

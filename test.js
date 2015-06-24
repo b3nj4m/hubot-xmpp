@@ -151,7 +151,7 @@ describe('XmppBot', function() {
       };
       bot.leaveRoom(room);
 
-      assert.deepEqual([], bot.options.rooms);
+      assert.equal(bot.rooms.has(room), false);
     });
 
     it('should call @client.send() with a presence element', function(done) {
@@ -949,14 +949,15 @@ describe('XmppBot', function() {
       bot = new Bot();
       bot.connectedDefer.resolve();
 
+      bot.rooms = new Map();
+      var room = {
+        jid: 'test@example.com',
+        password: false
+      };
+      bot.rooms.set(room.jid, room);
+
       bot.options = {
-        username: 'mybot@example.com',
-        rooms: [
-          {
-            jid: 'test@example.com',
-            password: false
-          }
-        ]
+        username: 'mybot@example.com'
       };
 
       bot.client = {
@@ -992,12 +993,12 @@ describe('XmppBot', function() {
           root = msg.tree();
           assert.equal('presence', msg.name, 'Element name is incorrect');
           nick = root.getChild('nick');
-          assert.equal('bert', nick.getText());
+          assert.equal(nick.getText(), 'bert');
         }, function(msg) {
           var root;
           root = msg.tree();
-          assert.equal('presence', root.name, 'Element name is incorrect');
-          assert.equal("test@example.com/bert", root.attrs.to, 'Msg sent to wrong room');
+          assert.equal(root.name, 'presence', 'Element name is incorrect');
+          assert.equal(root.attrs.to, "test@example.com/bert", 'Msg sent to wrong room');
         }
       ];
 
@@ -1018,13 +1019,16 @@ describe('XmppBot', function() {
 
       bot.heardOwnPresence = true;
 
+      bot.rooms = new Map();
+      var room = {
+        jid: 'test@example.com',
+        password: false
+      };
+      bot.rooms.set(room.jid, room);
+
       bot.options = {
         username: 'bot',
         rooms: [
-          {
-            jid: 'test@example.com',
-            password: false
-          }
         ]
       };
 
